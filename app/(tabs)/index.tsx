@@ -101,6 +101,7 @@ export default function App() {
       });
       const data = await res.json();
       setResultado(data);
+      data.analisis_detallado = data.analisis_detallado?.replace(/\*\*/g, '');
       if (vozActiva) {
         Speech.speak(data.resumen_voz, { language: 'es-PY', rate: 0.95 });
       }
