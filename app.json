@@ -39,7 +39,9 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "@react-native-voice/voice",
+      "expo-speech-recognition"
     ],
     "experiments": {
       "typedRoutes": true,

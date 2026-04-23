@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Speech from 'expo-speech';
+import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import { useEffect, useState } from 'react';
 import {
   Alert,
@@ -13,7 +14,6 @@ import {
 
 const BACKEND_URL = 'https://vozviaje-backend-production.up.railway.app';
 
-// Viaje de ejemplo para simular notificaciones
 const VIAJES_EJEMPLO = [
   {
     pasajero_nombre: 'Carlos M.',
@@ -65,10 +65,33 @@ export default function App() {
   const [historial, setHistorial] = useState<HistorialItem[]>([]);
   const [vozActiva, setVozActiva] = useState(true);
   const [vista, setVista] = useState<'inicio' | 'viaje' | 'historial'>('inicio');
+  const [escuchando, setEscuchando] = useState(false);
 
   useEffect(() => {
     cargarHistorial();
   }, []);
+
+  useSpeechRecognitionEvent('result', (event) => {
+    const texto = event.results[0]?.transcript?.toLowerCase() || '';
+    if (texto.includes('aceptar') || texto.includes('acepto') || texto.includes('si')) {
+      decidir('aceptado');
+    } else if (texto.includes('rechazar') || texto.includes('rechazo') || texto.includes('no')) {
+      decidir('rechazado');
+    }
+    setEscuchando(false);
+  });
+
+  useSpeechRecognitionEvent('end', () => setEscuchando(false));
+
+  const iniciarEscucha = async () => {
+    const { granted } = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    if (!granted) {
+      Alert.alert('Permiso requerido', 'Necesitás dar permiso al micrófono para usar la respuesta por voz.');
+      return;
+    }
+    setEscuchando(true);
+    ExpoSpeechRecognitionModule.start({ lang: 'es-419', continuous: false });
+  };
 
   const cargarHistorial = async () => {
     try {
@@ -86,7 +109,7 @@ export default function App() {
   };
 
   const simularViaje = async () => {
-    const viaje = VIAJES_EJEMPLO[Math.floor(Math.random() * VIAJES_EJEMPLO.length)];
+    const viaje = { ...VIAJES_EJEMPLO[Math.floor(Math.random() * VIAJES_EJEMPLO.length)] };
     viaje.hora_actual = new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' });
     setViajeActual(viaje);
     setResultado(null);
@@ -100,11 +123,19 @@ export default function App() {
         body: JSON.stringify(viaje),
       });
       const data = await res.json();
-      setResultado(data);
       data.analisis_detallado = data.analisis_detallado?.replace(/\*\*/g, '').replace(/\*/g, '');
-data.resumen_voz = data.resumen_voz?.replace(/\*\*/g, '').replace(/\*/g, '');
+      data.resumen_voz = data.resumen_voz?.replace(/\*\*/g, '').replace(/\*/g, '');
+      setResultado(data);
       if (vozActiva) {
-        Speech.speak(data.resumen_voz, { language: 'es-PY', rate: 0.95 });
+        Speech.speak(data.resumen_voz, {
+          language: 'es-419',
+          rate: 0.95,
+          onDone: () => {
+            if (vozActiva) {
+              Speech.speak('Decí aceptar o rechazar.', { language: 'es-419', onDone: iniciarEscucha });
+            }
+          }
+        });
       }
     } catch (e) {
       Alert.alert('Error', 'No se pudo conectar al servidor. Verificá tu conexión.');
@@ -123,12 +154,14 @@ data.resumen_voz = data.resumen_voz?.replace(/\*\*/g, '').replace(/\*/g, '');
     };
     await guardarHistorial(item);
     Speech.stop();
+    ExpoSpeechRecognitionModule.stop();
     if (vozActiva) {
-      Speech.speak(decision === 'aceptado' ? 'Viaje aceptado. Buen viaje.' : 'Viaje rechazado.', { language: 'es-PY' });
+      Speech.speak(decision === 'aceptado' ? 'Viaje aceptado. Buen viaje.' : 'Viaje rechazado.', { language: 'es-419' });
     }
     setVista('inicio');
     setViajeActual(null);
     setResultado(null);
+    setEscuchando(false);
   };
 
   const colorVeredicto = (v: string) => {
@@ -208,9 +241,7 @@ data.resumen_voz = data.resumen_voz?.replace(/\*\*/g, '').replace(/\*/g, '');
         <View style={s.card}>
           <Text style={s.pasajeroNombre}>{viajeActual.pasajero_nombre}</Text>
           <Text style={s.calificacion}>★ {viajeActual.pasajero_calificacion} · {viajeActual.pasajero_total_viajes} viajes</Text>
-
           <View style={s.divider} />
-
           <View style={s.dataRow}>
             <Text style={s.dataLabel}>Origen</Text>
             <Text style={s.dataVal}>{viajeActual.origen}</Text>
@@ -255,14 +286,26 @@ data.resumen_voz = data.resumen_voz?.replace(/\*\*/g, '').replace(/\*/g, '');
         )}
 
         {resultado && !cargando && (
-          <View style={s.botonesRow}>
-            <TouchableOpacity style={s.btnRechazar} onPress={() => decidir('rechazado')}>
-              <Text style={s.btnRechazarText}>Rechazar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={s.btnAceptar} onPress={() => decidir('aceptado')}>
-              <Text style={s.btnAceptarText}>Aceptar</Text>
-            </TouchableOpacity>
-          </View>
+          <>
+            {escuchando && (
+              <View style={s.escuchandoBox}>
+                <Text style={s.escuchandoText}>Escuchando... decí "aceptar" o "rechazar"</Text>
+              </View>
+            )}
+            <View style={s.botonesRow}>
+              <TouchableOpacity style={s.btnRechazar} onPress={() => decidir('rechazado')}>
+                <Text style={s.btnRechazarText}>Rechazar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.btnAceptar} onPress={() => decidir('aceptado')}>
+                <Text style={s.btnAceptarText}>Aceptar</Text>
+              </TouchableOpacity>
+            </View>
+            {!escuchando && vozActiva && (
+              <TouchableOpacity style={s.btnVoz} onPress={iniciarEscucha}>
+                <Text style={s.btnVozText}>Responder por voz</Text>
+              </TouchableOpacity>
+            )}
+          </>
         )}
       </ScrollView>
     );
@@ -276,11 +319,10 @@ data.resumen_voz = data.resumen_voz?.replace(/\*\*/g, '').replace(/\*/g, '');
           <Text style={s.linkText}>Historial</Text>
         </TouchableOpacity>
       </View>
-
       <View style={s.inicioContent}>
         <Text style={s.inicioSubtitle}>Asistente de voz para conductores</Text>
         <View style={s.vozRow}>
-          <Text style={s.vozLabel}>Lectura de voz automática</Text>
+          <Text style={s.vozLabel}>Lectura y respuesta por voz</Text>
           <Switch value={vozActiva} onValueChange={setVozActiva} />
         </View>
         <TouchableOpacity style={s.btnSimular} onPress={simularViaje}>
@@ -314,11 +356,15 @@ const s = StyleSheet.create({
   analisis: { fontSize: 13, color: '#5F5E5A', lineHeight: 20 },
   alertaBox: { backgroundColor: '#FAEEDA', borderRadius: 8, padding: 10, marginTop: 10 },
   alertaText: { fontSize: 13, color: '#633806', marginBottom: 4 },
-  botonesRow: { flexDirection: 'row', gap: 12, marginHorizontal: 16 },
+  escuchandoBox: { backgroundColor: '#E6F1FB', marginHorizontal: 16, borderRadius: 8, padding: 12, marginBottom: 10 },
+  escuchandoText: { color: '#185FA5', fontSize: 13, textAlign: 'center' },
+  botonesRow: { flexDirection: 'row', gap: 12, marginHorizontal: 16, marginBottom: 10 },
   btnAceptar: { flex: 1, backgroundColor: '#1D9E75', borderRadius: 10, padding: 16, alignItems: 'center' },
   btnAceptarText: { color: '#fff', fontSize: 16, fontWeight: '500' },
   btnRechazar: { flex: 1, backgroundColor: '#fff', borderRadius: 10, padding: 16, alignItems: 'center', borderWidth: 0.5, borderColor: '#E0E0DA' },
   btnRechazarText: { color: '#5F5E5A', fontSize: 16 },
+  btnVoz: { marginHorizontal: 16, backgroundColor: '#E6F1FB', borderRadius: 10, padding: 14, alignItems: 'center' },
+  btnVozText: { color: '#185FA5', fontSize: 14, fontWeight: '500' },
   inicioContent: { flex: 1, paddingHorizontal: 20, paddingTop: 20 },
   inicioSubtitle: { fontSize: 16, color: '#5F5E5A', marginBottom: 24 },
   vozRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
