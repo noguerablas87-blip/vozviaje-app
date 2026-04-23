@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "vozviaje-app",
+    "name": "vozviaje-app",replace
     "slug": "vozviaje-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -40,7 +40,7 @@
           }
         }
       ],
-      "@react-native-voice/voice",
+      
       "expo-speech-recognition"
     ],
     "experiments": {
