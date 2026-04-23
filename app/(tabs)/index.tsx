@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import Login from '../login';
 
 const BACKEND_URL = 'https://vozviaje-backend-production.up.railway.app';
 
@@ -66,10 +67,20 @@ export default function App() {
   const [vozActiva, setVozActiva] = useState(true);
   const [vista, setVista] = useState<'inicio' | 'viaje' | 'historial'>('inicio');
   const [escuchando, setEscuchando] = useState(false);
+  const [usuario, setUsuario] = useState<any>(null);
+const [verificandoSesion, setVerificandoSesion] = useState(true);
 
   useEffect(() => {
-    cargarHistorial();
-  }, []);
+  const verificarSesion = async () => {
+    try {
+      const data = await AsyncStorage.getItem('usuario');
+      if (data) setUsuario(JSON.parse(data));
+    } catch {}
+    setVerificandoSesion(false);
+  };
+  verificarSesion();
+  cargarHistorial();
+}, []);
 
   useSpeechRecognitionEvent('result', (event) => {
     const texto = event.results[0]?.transcript?.toLowerCase() || '';
@@ -177,7 +188,8 @@ export default function App() {
       .reduce((acc, h) => acc + (h.resultado?.ganancia_neta_gs || 0), 0);
     return { aceptados, rechazados: historial.length - aceptados, ganancia };
   };
-
+if (verificandoSesion) return null;
+if (!usuario) return <Login onLogin={(u) => setUsuario(u)} />;
   if (vista === 'historial') {
     const stats = statsHistorial();
     return (
