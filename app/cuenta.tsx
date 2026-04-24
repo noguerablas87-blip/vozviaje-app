@@ -29,6 +29,7 @@ export default function Cuenta({ onCerrarSesion, onVolver }: CuentaProps) {
   const cargarCuenta = async () => {
     try {
       const celular = await AsyncStorage.getItem('celular');
+      Alert.alert('Debug', `Celular: ${celular}`);
       if (!celular) return;
       const res = await fetch(`${BACKEND_URL}/estado-cuenta`, {
         method: 'POST',
