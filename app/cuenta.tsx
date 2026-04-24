@@ -29,8 +29,11 @@ export default function Cuenta({ onCerrarSesion, onVolver }: CuentaProps) {
   const cargarCuenta = async () => {
     try {
       const celular = await AsyncStorage.getItem('celular');
-      Alert.alert('Debug', `Celular: ${celular}`);
-      if (!celular) return;
+      // ELIMINADO: Alert.alert('Debug', `Celular: ${celular}`);
+      if (!celular) {
+        setCargando(false); // FIX: antes hacía return sin llamar a setCargando(false)
+        return;
+      }
       const res = await fetch(`${BACKEND_URL}/estado-cuenta`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -38,6 +41,7 @@ export default function Cuenta({ onCerrarSesion, onVolver }: CuentaProps) {
       });
       const data = await res.json();
       if (res.ok) setCuenta(data);
+      else Alert.alert('Error', data.detail || 'No se pudo cargar la información de tu cuenta.');
     } catch {
       Alert.alert('Error', 'No se pudo cargar la información de tu cuenta.');
     } finally {
@@ -102,6 +106,15 @@ export default function Cuenta({ onCerrarSesion, onVolver }: CuentaProps) {
           <Text style={s.linkText}>Volver</Text>
         </TouchableOpacity>
       </View>
+
+      {!cuenta && (
+        <View style={s.sinCuentaBox}>
+          <Text style={s.sinCuentaText}>No se pudo cargar la información de tu cuenta.</Text>
+          <TouchableOpacity style={s.btnReintentar} onPress={cargarCuenta}>
+            <Text style={s.btnReintentarText}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {cuenta && (
         <>
@@ -220,4 +233,8 @@ const s = StyleSheet.create({
   btnWspText: { color: '#fff', fontSize: 15, fontWeight: '500' },
   btnCerrar: { marginHorizontal: 16, borderRadius: 10, padding: 14, alignItems: 'center', borderWidth: 0.5, borderColor: '#E0E0DA', marginTop: 4 },
   btnCerrarText: { color: '#E24B4A', fontSize: 15 },
+  sinCuentaBox: { marginHorizontal: 16, marginTop: 40, alignItems: 'center' },
+  sinCuentaText: { fontSize: 14, color: '#5F5E5A', textAlign: 'center', marginBottom: 16 },
+  btnReintentar: { backgroundColor: '#1D9E75', borderRadius: 10, paddingHorizontal: 24, paddingVertical: 12 },
+  btnReintentarText: { color: '#fff', fontSize: 15, fontWeight: '500' },
 });
