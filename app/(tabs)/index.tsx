@@ -1,6 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Login from '../login';
-// @ts-ignore
 import * as Speech from 'expo-speech';
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import { useEffect, useState } from 'react';
@@ -13,7 +12,8 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import Cuenta from '../cuenta';
+
+const Cuenta = require('../cuenta').default;
 
 
 const BACKEND_URL = 'https://vozviaje-backend-production.up.railway.app';
