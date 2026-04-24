@@ -194,7 +194,10 @@ const [vistaCuenta, setVistaCuenta] = useState(false);
   };
 if (verificandoSesion) return null;
 if (!usuario) return <Login onLogin={(u) => setUsuario(u)} />;
-if (vistaCuenta) return <Cuenta onVolver={() => setVistaCuenta(false)} onCerrarSesion={() => { setUsuario(null); setVistaCuenta(false); }} />;
+if (vistaCuenta) {
+  if (!Cuenta) { Alert.alert('Error', 'Componente Cuenta no encontrado'); return null; }
+  return <Cuenta onVolver={() => setVistaCuenta(false)} onCerrarSesion={() => { setUsuario(null); setVistaCuenta(false); }} />;
+}
   if (vista === 'historial') {
     const stats = statsHistorial();
     return (
