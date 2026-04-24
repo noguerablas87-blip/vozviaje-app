@@ -336,13 +336,7 @@ if (vistaCuenta) return <Cuenta onVolver={() => setVistaCuenta(false)} onCerrarS
   <TouchableOpacity onPress={() => setVista('historial')}>
     <Text style={s.linkText}>Historial</Text>
   </TouchableOpacity>
-<TouchableOpacity onPress={async () => {
-  const cel = await AsyncStorage.getItem('celular');
-  if (!cel) { Alert.alert('Error', 'No hay sesión activa'); return; }
-  const res = await fetch(`${BACKEND_URL}/estado-cuenta`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({celular: cel}) });
-  const data = await res.json();
-  Alert.alert('Mi cuenta', `${data.nombre}\n${data.celular}\nEstado: ${data.estado}\nDías: ${data.dias_restantes}\nCódigo referido: ${data.codigo_referido}`);
-}}>
+<TouchableOpacity onPress={() => setVistaCuenta(true)}>
   <Text style={s.linkText}>Mi cuenta</Text>
 </TouchableOpacity>
 </View>
