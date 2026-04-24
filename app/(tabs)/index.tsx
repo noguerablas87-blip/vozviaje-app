@@ -1,4 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Login from '../login';
+// @ts-ignore
 import * as Speech from 'expo-speech';
 import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import { useEffect, useState } from 'react';
@@ -11,7 +13,8 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import Login from '../login';
+import Cuenta from '../cuenta';
+
 
 const BACKEND_URL = 'https://vozviaje-backend-production.up.railway.app';
 
@@ -69,6 +72,7 @@ export default function App() {
   const [escuchando, setEscuchando] = useState(false);
   const [usuario, setUsuario] = useState<any>(null);
 const [verificandoSesion, setVerificandoSesion] = useState(true);
+const [vistaCuenta, setVistaCuenta] = useState(false);
 
   useEffect(() => {
   const verificarSesion = async () => {
@@ -143,7 +147,7 @@ const [verificandoSesion, setVerificandoSesion] = useState(true);
           rate: 0.95,
           onDone: () => {
             if (vozActiva) {
-              Speech.speak('Decí aceptar o rechazar.', { language: 'es-419', onDone: iniciarEscucha });
+              Speech.speak('Decí aceptar o rechazar.', { language: 'es-419', onDone: () => { iniciarEscucha(); } });
             }
           }
         });
@@ -190,6 +194,7 @@ const [verificandoSesion, setVerificandoSesion] = useState(true);
   };
 if (verificandoSesion) return null;
 if (!usuario) return <Login onLogin={(u) => setUsuario(u)} />;
+if (vistaCuenta) return <Cuenta onVolver={() => setVistaCuenta(false)} onCerrarSesion={() => { setUsuario(null); setVistaCuenta(false); }} />;
   if (vista === 'historial') {
     const stats = statsHistorial();
     return (
@@ -327,9 +332,14 @@ if (!usuario) return <Login onLogin={(u) => setUsuario(u)} />;
     <View style={s.container}>
       <View style={s.header}>
         <Text style={s.headerTitle}>VozViaje</Text>
-        <TouchableOpacity onPress={() => setVista('historial')}>
-          <Text style={s.linkText}>Historial</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 16 }}>
+  <TouchableOpacity onPress={() => setVista('historial')}>
+    <Text style={s.linkText}>Historial</Text>
+  </TouchableOpacity>
+  <TouchableOpacity onPress={() => setVistaCuenta(true)}>
+    <Text style={s.linkText}>Mi cuenta</Text>
+  </TouchableOpacity>
+</View>
       </View>
       <View style={s.inicioContent}>
         <Text style={s.inicioSubtitle}>Asistente de voz para conductores</Text>
