@@ -2,7 +2,6 @@ package com.anonymous.vozviajeapp
 
 import android.content.Intent
 import android.provider.Settings
-import android.accessibilityservice.AccessibilityServiceInfo
 import android.view.accessibility.AccessibilityManager
 import android.content.Context
 import com.facebook.react.bridge.*
@@ -13,23 +12,20 @@ class AccessibilityModule(private val reactContext: ReactApplicationContext) :
 
     override fun getName() = "VozViajeAccessibility"
 
-    // Verificar si el Accessibility Service está activado
     @ReactMethod
     fun isAccessibilityEnabled(promise: Promise) {
         try {
-            val am = reactContext.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
             val enabledServices = Settings.Secure.getString(
                 reactContext.contentResolver,
                 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
             ) ?: ""
-            val isEnabled = enabledServices.contains("vozviajeapp/com.anonymous.vozviajeapp.VozViajeAccessibilityService")
+            val isEnabled = enabledServices.contains("com.anonymous.vozviajeapp/com.anonymous.vozviajeapp.VozViajeAccessibilityService")
             promise.resolve(isEnabled)
         } catch (e: Exception) {
             promise.resolve(false)
         }
     }
 
-    // Abrir la pantalla de configuración de Accesibilidad
     @ReactMethod
     fun openAccessibilitySettings() {
         val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
@@ -37,34 +33,21 @@ class AccessibilityModule(private val reactContext: ReactApplicationContext) :
         reactContext.startActivity(intent)
     }
 
-    // Aceptar el viaje actual
     @ReactMethod
     fun aceptarViaje() {
-        VozViajeAccessibilityService.onViajeDetectado?.let {
-            // Buscar instancia activa del servicio
-        }
-        // Emitir evento para que el servicio lo maneje
-        sendEvent("AcceptTrip", null)
+        VozViajeAccessibilityService.instance?.aceptarViaje()
     }
 
-    // Rechazar el viaje actual
     @ReactMethod
     fun rechazarViaje() {
-        sendEvent("RejectTrip", null)
+        VozViajeAccessibilityService.instance?.rechazarViaje()
     }
 
-    // Registrar listener para recibir eventos del servicio
     @ReactMethod
     fun addListener(eventName: String) {}
 
     @ReactMethod
     fun removeListeners(count: Int) {}
-
-    private fun sendEvent(eventName: String, params: WritableMap?) {
-        reactContext
-            .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-            .emit(eventName, params)
-    }
 
     companion object {
         fun emitViajeDetectado(context: ReactApplicationContext, datos: String) {
