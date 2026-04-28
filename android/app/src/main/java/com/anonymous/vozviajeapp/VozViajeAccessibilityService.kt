@@ -2,6 +2,9 @@ package com.anonymous.vozviajeapp
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -11,8 +14,10 @@ class VozViajeAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val TAG = "VozViajeAccess"
-        private const val PKG_BOLT = "com.bolt.driver"
+        private const val PKG_BOLT = "ee.mtakso.driver"
         private const val PKG_UBER = "com.ubercab.driver"
+        private const val CHANNEL_ID = "vozviaje_service"
+        private const val NOTIF_ID = 1001
 
         var instance: VozViajeAccessibilityService? = null
         private var ultimoTimestamp = 0L
@@ -31,7 +36,29 @@ class VozViajeAccessibilityService : AccessibilityService() {
             notificationTimeout = 100
         }
         serviceInfo = info
+        iniciarForegroundService()
         Log.d(TAG, "VozViaje Accessibility Service conectado")
+    }
+
+    private fun iniciarForegroundService() {
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "VozViaje Activo",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "VozViaje está escuchando viajes de Bolt y Uber"
+        }
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(channel)
+
+        val notification = Notification.Builder(this, CHANNEL_ID)
+            .setContentTitle("VozViaje activo")
+            .setContentText("Escuchando viajes de Bolt y Uber")
+            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setOngoing(true)
+            .build()
+
+        startForeground(NOTIF_ID, notification)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
