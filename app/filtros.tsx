@@ -16,6 +16,7 @@ import {
   cargarFiltros,
   guardarFiltros,
 } from './constants/filtros';
+import Zonas from './zonas';
 
 type Props = {
   onVolver: () => void;
@@ -48,6 +49,7 @@ export default function Filtros({ onVolver }: Props) {
   const [filtros, setFiltros] = useState<FiltrosConductor>(FILTROS_DEFAULT);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
+  const [vistaZonas, setVistaZonas] = useState(false);
 
   useEffect(() => {
     cargarFiltros().then(f => {
@@ -89,6 +91,10 @@ export default function Filtros({ onVolver }: Props) {
         <Text style={s.cargandoText}>Cargando configuración...</Text>
       </View>
     );
+  }
+
+  if (vistaZonas) {
+    return <Zonas onVolver={() => setVistaZonas(false)} />;
   }
 
   return (
@@ -222,6 +228,10 @@ export default function Filtros({ onVolver }: Props) {
         <Text style={s.btnGuardarText}>{guardando ? 'Guardando...' : 'Guardar configuración'}</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity style={s.btnZonas} onPress={() => setVistaZonas(true)}>
+        <Text style={s.btnZonasText}>📍 Mis zonas de trabajo</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity style={s.btnReset} onPress={resetear}>
         <Text style={s.btnResetText}>Resetear a valores por defecto</Text>
       </TouchableOpacity>
@@ -255,6 +265,8 @@ const s = StyleSheet.create({
   infoVal: { fontSize: 14, fontWeight: '500', color: '#085041' },
   btnGuardar: { marginHorizontal: 16, backgroundColor: '#1D9E75', borderRadius: 12, padding: 18, alignItems: 'center', marginTop: 16 },
   btnGuardarText: { color: '#fff', fontSize: 16, fontWeight: '500' },
+  btnZonas: { marginHorizontal: 16, backgroundColor: '#E6F1FB', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 8 },
+  btnZonasText: { color: '#185FA5', fontSize: 15, fontWeight: '500' },
   btnReset: { marginHorizontal: 16, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 8 },
   btnResetText: { color: '#888780', fontSize: 14 },
 });

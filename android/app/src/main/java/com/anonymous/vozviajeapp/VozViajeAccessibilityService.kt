@@ -5,6 +5,7 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.Intent
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -143,6 +144,14 @@ class VozViajeAccessibilityService : AccessibilityService() {
 
     private fun enviarAReactNative(datos: String) {
         try {
+            // Lanzar overlay
+            val intent = Intent(this, OverlayService::class.java).apply {
+                action = OverlayService.ACTION_MOSTRAR
+                putExtra(OverlayService.EXTRA_DATOS, datos)
+            }
+            startService(intent)
+
+            // Enviar a React Native
             val app = application as? MainApplication ?: return
             val reactContext = app.reactHost.currentReactContext ?: return
             AccessibilityModule.emitViajeDetectado(
