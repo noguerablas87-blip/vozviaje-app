@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Circle, Marker } from 'react-native-maps';
 
 const ZONAS_ASUNCION = [
   { id: 'villa_morra', nombre: 'Villa Morra', lat: -25.2867, lng: -57.5756 },
@@ -120,7 +120,6 @@ export default function Zonas({ onVolver }: Props) {
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
 
-        {/* Toggle principal */}
         <View style={s.card}>
           <View style={s.toggleRow}>
             <View style={{ flex: 1 }}>
@@ -135,7 +134,6 @@ export default function Zonas({ onVolver }: Props) {
           </View>
         </View>
 
-        {/* Reglas */}
         <Text style={s.seccionTitle}>Reglas de rechazo</Text>
         <View style={s.card}>
           <View style={s.toggleRow}>
@@ -163,7 +161,6 @@ export default function Zonas({ onVolver }: Props) {
           </View>
         </View>
 
-        {/* Modo */}
         <Text style={s.seccionTitle}>Tipo de zona</Text>
         <View style={s.modoRow}>
           <TouchableOpacity
@@ -184,7 +181,6 @@ export default function Zonas({ onVolver }: Props) {
           </TouchableOpacity>
         </View>
 
-        {/* Barrios predefinidos */}
         {config.modo === 'predefinidas' && (
           <>
             <Text style={s.seccionTitle}>Seleccioná tus barrios</Text>
@@ -207,7 +203,6 @@ export default function Zonas({ onVolver }: Props) {
           </>
         )}
 
-        {/* Radio circular */}
         {config.modo === 'radio' && (
           <>
             <Text style={s.seccionTitle}>Tocá el mapa para definir tu zona</Text>
@@ -215,7 +210,6 @@ export default function Zonas({ onVolver }: Props) {
               <MapView
                 ref={mapRef}
                 style={s.map}
-                provider={PROVIDER_GOOGLE}
                 initialRegion={{
                   latitude: config.centro_lat,
                   longitude: config.centro_lng,
@@ -238,7 +232,6 @@ export default function Zonas({ onVolver }: Props) {
               </MapView>
             </View>
 
-            {/* Slider de radio */}
             <View style={s.card}>
               <View style={s.campoRow}>
                 <Text style={s.campoLabel}>Radio de la zona</Text>
