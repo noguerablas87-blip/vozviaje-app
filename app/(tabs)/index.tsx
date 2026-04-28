@@ -12,9 +12,10 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import Filtros from '../filtros';
+import { cargarFiltros, evaluarViaje, FiltrosConductor, FILTROS_DEFAULT } from '../constants/filtros';
 
 const Cuenta = require('../cuenta').default;
-
 
 const BACKEND_URL = 'https://vozviaje-backend-production.up.railway.app';
 
@@ -28,6 +29,7 @@ const VIAJES_EJEMPLO = [
     distancia_km: 18.4,
     duracion_min: 22,
     tarifa_estimada_gs: 78000,
+    distancia_pasajero_km: 1.2,
     hora_actual: new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' }),
   },
   {
@@ -39,6 +41,7 @@ const VIAJES_EJEMPLO = [
     distancia_km: 4.2,
     duracion_min: 12,
     tarifa_estimada_gs: 22000,
+    distancia_pasajero_km: 0.8,
     hora_actual: new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' }),
   },
   {
@@ -50,6 +53,7 @@ const VIAJES_EJEMPLO = [
     distancia_km: 6.8,
     duracion_min: 15,
     tarifa_estimada_gs: 35000,
+    distancia_pasajero_km: 2.1,
     hora_actual: new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' }),
   },
 ];
@@ -71,20 +75,23 @@ export default function App() {
   const [vista, setVista] = useState<'inicio' | 'viaje' | 'historial'>('inicio');
   const [escuchando, setEscuchando] = useState(false);
   const [usuario, setUsuario] = useState<any>(null);
-const [verificandoSesion, setVerificandoSesion] = useState(true);
-const [vistaCuenta, setVistaCuenta] = useState(false);
+  const [verificandoSesion, setVerificandoSesion] = useState(true);
+  const [vistaCuenta, setVistaCuenta] = useState(false);
+  const [vistaFiltros, setVistaFiltros] = useState(false);
+  const [filtros, setFiltros] = useState<FiltrosConductor>(FILTROS_DEFAULT);
 
   useEffect(() => {
-  const verificarSesion = async () => {
-    try {
-      const data = await AsyncStorage.getItem('usuario');
-      if (data) setUsuario(JSON.parse(data));
-    } catch {}
-    setVerificandoSesion(false);
-  };
-  verificarSesion();
-  cargarHistorial();
-}, []);
+    const verificarSesion = async () => {
+      try {
+        const data = await AsyncStorage.getItem('usuario');
+        if (data) setUsuario(JSON.parse(data));
+      } catch {}
+      setVerificandoSesion(false);
+    };
+    verificarSesion();
+    cargarHistorial();
+    cargarFiltros().then(setFiltros);
+  }, []);
 
   useSpeechRecognitionEvent('result', (event) => {
     const texto = event.results[0]?.transcript?.toLowerCase() || '';
@@ -126,6 +133,24 @@ const [vistaCuenta, setVistaCuenta] = useState(false);
   const simularViaje = async () => {
     const viaje = { ...VIAJES_EJEMPLO[Math.floor(Math.random() * VIAJES_EJEMPLO.length)] };
     viaje.hora_actual = new Date().toLocaleTimeString('es-PY', { hour: '2-digit', minute: '2-digit' });
+
+    // Evaluar con filtros antes de analizar
+    const evaluacion = evaluarViaje(
+      viaje.tarifa_estimada_gs,
+      viaje.distancia_km,
+      viaje.pasajero_calificacion,
+      viaje.distancia_pasajero_km,
+      filtros
+    );
+
+    if (!evaluacion.conviene && filtros.filtros_activos) {
+      if (vozActiva) {
+        Speech.speak(`Viaje rechazado automáticamente. ${evaluacion.motivo_rechazo}`, { language: 'es-419' });
+      }
+      Alert.alert('Viaje rechazado automáticamente', evaluacion.motivo_rechazo);
+      return;
+    }
+
     setViajeActual(viaje);
     setResultado(null);
     setCargando(true);
@@ -135,11 +160,21 @@ const [vistaCuenta, setVistaCuenta] = useState(false);
       const res = await fetch(`${BACKEND_URL}/analizar-viaje`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(viaje),
+        body: JSON.stringify({
+          ...viaje,
+          precio_combustible_gs: filtros.precio_combustible_gs,
+          rendimiento_km_litro: filtros.rendimiento_km_litro,
+          comision_plataforma_pct: filtros.comision_plataforma_pct,
+        }),
       });
       const data = await res.json();
       data.analisis_detallado = data.analisis_detallado?.replace(/\*\*/g, '').replace(/\*/g, '');
       data.resumen_voz = data.resumen_voz?.replace(/\*\*/g, '').replace(/\*/g, '');
+
+      // Agregar info del cálculo local
+      data.costo_combustible_gs = Math.round(evaluacion.calculo.costo_combustible);
+      data.gs_por_km = Math.round(evaluacion.calculo.gs_por_km);
+
       setResultado(data);
       if (vozActiva) {
         Speech.speak(data.resumen_voz, {
@@ -192,12 +227,17 @@ const [vistaCuenta, setVistaCuenta] = useState(false);
       .reduce((acc, h) => acc + (h.resultado?.ganancia_neta_gs || 0), 0);
     return { aceptados, rechazados: historial.length - aceptados, ganancia };
   };
-if (verificandoSesion) return null;
-if (!usuario) return <Login onLogin={(u) => setUsuario(u)} />;
-if (vistaCuenta) {
-  if (!Cuenta) { Alert.alert('Error', 'Componente Cuenta no encontrado'); return null; }
-  return <Cuenta onVolver={() => setVistaCuenta(false)} onCerrarSesion={() => { setUsuario(null); setVistaCuenta(false); }} />;
-}
+
+  if (verificandoSesion) return null;
+  if (!usuario) return <Login onLogin={(u) => setUsuario(u)} />;
+  if (vistaCuenta) {
+    if (!Cuenta) { Alert.alert('Error', 'Componente Cuenta no encontrado'); return null; }
+    return <Cuenta onVolver={() => setVistaCuenta(false)} onCerrarSesion={() => { setUsuario(null); setVistaCuenta(false); }} />;
+  }
+  if (vistaFiltros) {
+    return <Filtros onVolver={() => { setVistaFiltros(false); cargarFiltros().then(setFiltros); }} />;
+  }
+
   if (vista === 'historial') {
     const stats = statsHistorial();
     return (
@@ -294,6 +334,11 @@ if (vistaCuenta) {
             <Text style={s.ganancia}>
               Ganancia estimada: Gs. {resultado.ganancia_neta_gs?.toLocaleString()}
             </Text>
+            {resultado.costo_combustible_gs > 0 && (
+              <Text style={s.detalle}>
+                Combustible: Gs. {resultado.costo_combustible_gs?.toLocaleString()} · Gs/km: {resultado.gs_por_km?.toLocaleString()}
+              </Text>
+            )}
             <Text style={s.analisis}>{resultado.analisis_detallado}</Text>
             {resultado.alertas?.length > 0 && (
               <View style={s.alertaBox}>
@@ -336,23 +381,37 @@ if (vistaCuenta) {
       <View style={s.header}>
         <Text style={s.headerTitle}>VozViaje</Text>
         <View style={{ flexDirection: 'row', gap: 16 }}>
-  <TouchableOpacity onPress={() => setVista('historial')}>
-    <Text style={s.linkText}>Historial</Text>
-  </TouchableOpacity>
-<TouchableOpacity onPress={() => setVistaCuenta(true)}>
-  <Text style={s.linkText}>Mi cuenta</Text>
-</TouchableOpacity>
-</View>
+          <TouchableOpacity onPress={() => setVista('historial')}>
+            <Text style={s.linkText}>Historial</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setVistaCuenta(true)}>
+            <Text style={s.linkText}>Mi cuenta</Text>
+          </TouchableOpacity>
+        </View>
       </View>
       <View style={s.inicioContent}>
         <Text style={s.inicioSubtitle}>Asistente de voz para conductores</Text>
+
+        {/* Badge filtros activos */}
+        {filtros.filtros_activos && (
+          <View style={s.filtrosBadge}>
+            <Text style={s.filtrosBadgeText}>⚙ Filtros activos — rechazo automático activado</Text>
+          </View>
+        )}
+
         <View style={s.vozRow}>
           <Text style={s.vozLabel}>Lectura y respuesta por voz</Text>
           <Switch value={vozActiva} onValueChange={setVozActiva} />
         </View>
+
         <TouchableOpacity style={s.btnSimular} onPress={simularViaje}>
           <Text style={s.btnSimularText}>Simular viaje entrante</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity style={s.btnFiltros} onPress={() => setVistaFiltros(true)}>
+          <Text style={s.btnFiltrosText}>⚙ Mis filtros y vehículo</Text>
+        </TouchableOpacity>
+
         <Text style={s.nota}>
           En producción, esta pantalla detectará automáticamente las notificaciones de Bolt y Uber.
         </Text>
@@ -377,7 +436,8 @@ const s = StyleSheet.create({
   cargandoText: { color: '#085041', fontSize: 14, textAlign: 'center' },
   resultadoCard: { backgroundColor: '#fff', marginHorizontal: 16, borderRadius: 12, padding: 16, borderWidth: 0.5, borderColor: '#E0E0DA', marginBottom: 12 },
   veredicto: { fontSize: 20, fontWeight: '500', marginBottom: 6 },
-  ganancia: { fontSize: 15, color: '#1A1A18', marginBottom: 10 },
+  ganancia: { fontSize: 15, color: '#1A1A18', marginBottom: 4 },
+  detalle: { fontSize: 12, color: '#888780', marginBottom: 10 },
   analisis: { fontSize: 13, color: '#5F5E5A', lineHeight: 20 },
   alertaBox: { backgroundColor: '#FAEEDA', borderRadius: 8, padding: 10, marginTop: 10 },
   alertaText: { fontSize: 13, color: '#633806', marginBottom: 4 },
@@ -391,11 +451,15 @@ const s = StyleSheet.create({
   btnVoz: { marginHorizontal: 16, backgroundColor: '#E6F1FB', borderRadius: 10, padding: 14, alignItems: 'center' },
   btnVozText: { color: '#185FA5', fontSize: 14, fontWeight: '500' },
   inicioContent: { flex: 1, paddingHorizontal: 20, paddingTop: 20 },
-  inicioSubtitle: { fontSize: 16, color: '#5F5E5A', marginBottom: 24 },
+  inicioSubtitle: { fontSize: 16, color: '#5F5E5A', marginBottom: 16 },
+  filtrosBadge: { backgroundColor: '#E1F5EE', borderRadius: 8, padding: 10, marginBottom: 16 },
+  filtrosBadgeText: { fontSize: 12, color: '#085041', fontWeight: '500' },
   vozRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
   vozLabel: { fontSize: 15, color: '#1A1A18' },
-  btnSimular: { backgroundColor: '#1D9E75', borderRadius: 12, padding: 18, alignItems: 'center', marginBottom: 16 },
+  btnSimular: { backgroundColor: '#1D9E75', borderRadius: 12, padding: 18, alignItems: 'center', marginBottom: 12 },
   btnSimularText: { color: '#fff', fontSize: 16, fontWeight: '500' },
+  btnFiltros: { backgroundColor: '#fff', borderRadius: 12, padding: 16, alignItems: 'center', marginBottom: 16, borderWidth: 0.5, borderColor: '#E0E0DA' },
+  btnFiltrosText: { color: '#1A1A18', fontSize: 15, fontWeight: '500' },
   nota: { fontSize: 12, color: '#888780', textAlign: 'center', lineHeight: 18 },
   statsRow: { flexDirection: 'row', gap: 10, marginHorizontal: 16, marginBottom: 16 },
   statCard: { flex: 1, backgroundColor: '#F1EFE8', borderRadius: 8, padding: 12, alignItems: 'center' },
