@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
+  Linking,
   ScrollView,
   StyleSheet,
   Switch,
@@ -9,7 +10,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Circle, Marker } from 'react-native-maps';
 
 const ZONAS_ASUNCION = [
   { id: 'villa_morra', nombre: 'Villa Morra', lat: -25.2867, lng: -57.5756 },
@@ -67,7 +67,6 @@ type Props = { onVolver: () => void };
 export default function Zonas({ onVolver }: Props) {
   const [config, setConfig] = useState<ConfigZonas>(CONFIG_DEFAULT);
   const [cargando, setCargando] = useState(true);
-  const mapRef = useRef<MapView>(null);
 
   useEffect(() => {
     cargarZonas().then(c => { setConfig(c); setCargando(false); });
@@ -94,11 +93,16 @@ export default function Zonas({ onVolver }: Props) {
     }
   };
 
-  const onMapPress = (e: any) => {
-    if (config.modo !== 'radio') return;
-    const { latitude, longitude } = e.nativeEvent.coordinate;
-    actualizar('centro_lat', latitude);
-    actualizar('centro_lng', longitude);
+  const abrirEnMaps = () => {
+    const zona = ZONAS_ASUNCION.find(z => config.zonas_seleccionadas.includes(z.id));
+    const lat = zona ? zona.lat : config.centro_lat;
+    const lng = zona ? zona.lng : config.centro_lng;
+    Linking.openURL(`https://www.google.com/maps/@${lat},${lng},13z`);
+  };
+
+  const seleccionarZonaComoCentro = (zona: typeof ZONAS_ASUNCION[0]) => {
+    actualizar('centro_lat', zona.lat);
+    actualizar('centro_lng', zona.lng);
   };
 
   if (cargando) {
@@ -120,6 +124,7 @@ export default function Zonas({ onVolver }: Props) {
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
 
+        {/* Toggle principal */}
         <View style={s.card}>
           <View style={s.toggleRow}>
             <View style={{ flex: 1 }}>
@@ -134,6 +139,7 @@ export default function Zonas({ onVolver }: Props) {
           </View>
         </View>
 
+        {/* Reglas */}
         <Text style={s.seccionTitle}>Reglas de rechazo</Text>
         <View style={s.card}>
           <View style={s.toggleRow}>
@@ -161,6 +167,7 @@ export default function Zonas({ onVolver }: Props) {
           </View>
         </View>
 
+        {/* Modo */}
         <Text style={s.seccionTitle}>Tipo de zona</Text>
         <View style={s.modoRow}>
           <TouchableOpacity
@@ -181,6 +188,7 @@ export default function Zonas({ onVolver }: Props) {
           </TouchableOpacity>
         </View>
 
+        {/* Barrios predefinidos */}
         {config.modo === 'predefinidas' && (
           <>
             <Text style={s.seccionTitle}>Seleccioná tus barrios</Text>
@@ -203,35 +211,42 @@ export default function Zonas({ onVolver }: Props) {
           </>
         )}
 
+        {/* Radio circular */}
         {config.modo === 'radio' && (
           <>
-            <Text style={s.seccionTitle}>Tocá el mapa para definir tu zona</Text>
-            <View style={s.mapContainer}>
-              <MapView
-                ref={mapRef}
-                style={s.map}
-                initialRegion={{
-                  latitude: config.centro_lat,
-                  longitude: config.centro_lng,
-                  latitudeDelta: 0.3,
-                  longitudeDelta: 0.3,
-                }}
-                onPress={onMapPress}
-              >
-                <Marker
-                  coordinate={{ latitude: config.centro_lat, longitude: config.centro_lng }}
-                  title="Centro de tu zona"
-                />
-                <Circle
-                  center={{ latitude: config.centro_lat, longitude: config.centro_lng }}
-                  radius={config.radio_km * 1000}
-                  fillColor="rgba(29,158,117,0.15)"
-                  strokeColor="#1D9E75"
-                  strokeWidth={2}
-                />
-              </MapView>
+            <Text style={s.seccionTitle}>Centro de tu zona</Text>
+
+            {/* Selector de barrio como centro */}
+            <View style={s.zonasGrid}>
+              {ZONAS_ASUNCION.map(zona => {
+                const esCentro = config.centro_lat === zona.lat && config.centro_lng === zona.lng;
+                return (
+                  <TouchableOpacity
+                    key={zona.id}
+                    style={[s.zonaBadge, esCentro && s.zonaBadgeActiva]}
+                    onPress={() => seleccionarZonaComoCentro(zona)}
+                  >
+                    <Text style={[s.zonaBadgeText, esCentro && s.zonaBadgeTextActiva]}>
+                      {zona.nombre}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
+            {/* Info del centro */}
+            <View style={s.infoCard}>
+              <Text style={s.infoLabel}>Centro seleccionado</Text>
+              <Text style={s.infoVal}>
+                {ZONAS_ASUNCION.find(z => z.lat === config.centro_lat && z.lng === config.centro_lng)?.nombre || 'Personalizado'}
+              </Text>
+            </View>
+
+            <TouchableOpacity style={s.btnMaps} onPress={abrirEnMaps}>
+              <Text style={s.btnMapsText}>🗺 Ver en Google Maps</Text>
+            </TouchableOpacity>
+
+            {/* Radio */}
             <View style={s.card}>
               <View style={s.campoRow}>
                 <Text style={s.campoLabel}>Radio de la zona</Text>
@@ -286,8 +301,11 @@ const s = StyleSheet.create({
   zonaBadgeActiva: { backgroundColor: '#E1F5EE', borderColor: '#1D9E75' },
   zonaBadgeText: { fontSize: 13, color: '#5F5E5A' },
   zonaBadgeTextActiva: { color: '#1D9E75', fontWeight: '500' },
-  mapContainer: { marginHorizontal: 16, borderRadius: 12, overflow: 'hidden', marginBottom: 8, height: 280 },
-  map: { flex: 1 },
+  infoCard: { marginHorizontal: 16, backgroundColor: '#E1F5EE', borderRadius: 8, padding: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  infoLabel: { fontSize: 13, color: '#085041' },
+  infoVal: { fontSize: 14, fontWeight: '500', color: '#085041' },
+  btnMaps: { marginHorizontal: 16, backgroundColor: '#fff', borderRadius: 10, padding: 14, alignItems: 'center', marginBottom: 8, borderWidth: 0.5, borderColor: '#E0E0DA' },
+  btnMapsText: { color: '#185FA5', fontSize: 14, fontWeight: '500' },
   campoRow: { paddingVertical: 12 },
   campoLabel: { fontSize: 13, color: '#5F5E5A', marginBottom: 8 },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 16, justifyContent: 'center' },
